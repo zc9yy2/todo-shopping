@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#6366f1">
+  <title>やること・買い物</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --todo: #6366f1;
+      --todo-light: #eef2ff;
+      --shop: #10b981;
+      --shop-light: #d1fae5;
+      --bg: #f8fafc;
+      --surface: #fff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --radius: 14px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
+      min-height: 100dvh;
+      padding-bottom: calc(72px + var(--safe-bottom));
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding-top: var(--safe-top);
+    }
+
+    .header-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      text-align: center;
+      padding: 12px 16px 0;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      padding: 10px 16px 0;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      border: none;
+      background: none;
+      padding: 10px 0;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2.5px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active-todo  { color: var(--todo); border-color: var(--todo); }
+    .tab-btn.active-shop  { color: var(--shop); border-color: var(--shop); }
+
+    /* ── Main ── */
+    main { max-width: 520px; margin: 0 auto; padding: 16px; }
+
+    /* ── Input card ── */
+    .input-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      margin-bottom: 16px;
+    }
+
+    .field { margin-bottom: 11px; }
+    .field:last-child { margin-bottom: 0; }
+
+    .field label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"], select {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 13px;
+      font-size: 1rem;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.15s;
+      -webkit-appearance: none;
+    }
+
+    input[type="text"]:focus, select:focus { border-color: var(--todo); }
+    .shop-mode input[type="text"]:focus, .shop-mode select:focus { border-color: var(--shop); }
+    input.error { border-color: #fc8181; }
+
+    .row { display: flex; gap: 9px; }
+    .row .field { flex: 1; }
+
+    .add-btn {
+      width: 100%;
+      height: 48px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .add-btn:active { opacity: 0.85; transform: scale(0.98); }
+    .todo-btn  { background: var(--todo); }
+    .shop-btn  { background: var(--shop); }
+
+    /* ── Summary bar ── */
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+      margin-bottom: 10px;
+    }
+
+    .summary-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+
+    .clear-btn {
+      background: none; border: none;
+      color: #fc8181; font-size: 0.75rem; font-weight: 600;
+      cursor: pointer; padding: 4px 8px; border-radius: 6px;
+    }
+    .clear-btn:active { background: #fff5f5; }
+
+    /* ── Items ── */
+    .item-list { display: flex; flex-direction: column; gap: 9px; }
+
+    .item {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 13px 14px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      animation: slideIn 0.18s ease;
+      transition: opacity 0.2s;
+    }
+    .item.done-item { opacity: 0.45; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .check-btn {
+      width: 26px; height: 26px; flex-shrink: 0;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+    .check-btn.checked-todo { background: var(--todo); border-color: var(--todo); color: #fff; }
+    .check-btn.checked-shop { background: var(--shop); border-color: var(--shop); color: #fff; }
+
+    .item-body { flex: 1; min-width: 0; }
+
+    .item-title {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .done-item .item-title { text-decoration: line-through; }
+
+    .item-sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .item-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+    .time-badge, .cat-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+    .time-badge { background: var(--todo-light); color: var(--todo); }
+    .cat-badge  { background: var(--shop-light); color: #065f46; }
+
+    .del-btn {
+      background: none; border: none;
+      color: #cbd5e0; font-size: 1rem;
+      cursor: pointer; padding: 4px; border-radius: 6px;
+      line-height: 1;
+    }
+    .del-btn:active { color: #fc8181; }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 48px 0;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: calc(80px + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2d3748;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 9px;
+      font-size: 0.88rem;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+
+    /* ── Bottom tab bar ── */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding-bottom: var(--safe-bottom);
+      z-index: 50;
+    }
+
+    .bottom-tab {
+      flex: 1;
+      border: none;
+      background: none;
+      padding: 12px 0 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      transition: color 0.15s;
+    }
+    .bottom-tab .tab-icon { font-size: 1.4rem; }
+    .bottom-tab.active-todo { color: var(--todo); }
+    .bottom-tab.active-shop { color: var(--shop); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">やること・買い物</div>
+  <div class="tabs">
+    <button class="tab-btn active-todo" id="tabTodo" onclick="switchTab('todo')">✅ TODOリスト</button>
+    <button class="tab-btn" id="tabShop" onclick="switchTab('shop')">🛒 買い物リスト</button>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<div class="toast" id="toast"></div>
+
+<nav class="bottom-bar">
+  <button class="bottom-tab active-todo" id="btmTodo" onclick="switchTab('todo')">
+    <span class="tab-icon">✅</span>TODO
+  </button>
+  <button class="bottom-tab" id="btmShop" onclick="switchTab('shop')">
+    <span class="tab-icon">🛒</span>買い物
+  </button>
+</nav>
+
+<script>
+  const CATEGORIES = [
+    { icon: '🛒', label: '食費' },
+    { icon: '🍜', label: '外食' },
+    { icon: '☕', label: 'カフェ' },
+    { icon: '🏪', label: 'コンビニ' },
+    { icon: '💊', label: '医療・薬' },
+    { icon: '📦', label: '日用品' },
+    { icon: '🚃', label: '交通費' },
+    { icon: '🎫', label: '娯楽' },
+    { icon: '⛽', label: 'ガソリン' },
+    { icon: '👕', label: '衣類' },
+    { icon: '📚', label: '教育・書籍' },
+    { icon: '💡', label: 'その他' },
+  ];
+
+  const TIME_OPTIONS = ['5分', '10分', '15分', '30分', '1時間', '2時間', '半日', '1日', '未定'];
+
+  let todos = JSON.parse(localStorage.getItem('todos') || '[]');
+  let shops = JSON.parse(localStorage.getItem('shops') || '[]');
+  let tab   = 'todo';
+
+  function save() {
+    localStorage.setItem('todos', JSON.stringify(todos));
+    localStorage.setItem('shops', JSON.stringify(shops));
+  }
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function vibrate() {
+    if ('vibrate' in navigator) navigator.vibrate(30);
+  }
+
+  // ── Tab switch ──
+  function switchTab(t) {
+    tab = t;
+    document.getElementById('tabTodo').className = 'tab-btn' + (t === 'todo' ? ' active-todo' : '');
+    document.getElementById('tabShop').className = 'tab-btn' + (t === 'shop' ? ' active-shop' : '');
+    document.getElementById('btmTodo').className = 'bottom-tab' + (t === 'todo' ? ' active-todo' : '');
+    document.getElementById('btmShop').className = 'bottom-tab' + (t === 'shop' ? ' active-shop' : '');
+    render();
+  }
+
+  // ── Render ──
+  function render() {
+    const main = document.getElementById('main');
+    if (tab === 'todo') {
+      main.innerHTML = renderTodoTab();
+    } else {
+      main.innerHTML = renderShopTab();
+    }
+  }
+
+  function renderTodoTab() {
+    const timeOpts = TIME_OPTIONS.map(t => `<option value="${t}">${t}</option>`).join('');
+    const done = todos.filter(t => t.done).length;
+
+    const items = todos.map((t, i) => `
+      <div class="item${t.done ? ' done-item' : ''}">
+        <button class="check-btn${t.done ? ' checked-todo' : ''}" onclick="toggleTodo(${i})">
+          ${t.done ? '✓' : ''}
+        </button>
+        <div class="item-body">
+          <div class="item-title">${esc(t.task)}</div>
+        </div>
+        <div class="item-right">
+          <span class="time-badge">⏱ ${esc(t.time)}</span>
+          <button class="del-btn" onclick="delTodo(${i})">✕</button>
+        </div>
+      </div>`).join('');
+
+    return `
+      <div class="input-card">
+        <div class="field">
+          <label>やること</label>
+          <input type="text" id="todoTask" placeholder="例：資料作成" onkeydown="if(event.key==='Enter')addTodo()">
+        </div>
+        <div class="field">
+          <label>必要時間</label>
+          <select id="todoTime">${timeOpts}</select>
+        </div>
+        <button class="add-btn todo-btn" onclick="addTodo()">＋ 追加</button>
+      </div>
+      <div class="summary">
+        <span class="summary-label">TODO ${todos.length}件 / 完了 ${done}件</span>
+        <button class="clear-btn" onclick="clearDoneTodo()">完了済みを削除</button>
+      </div>
+      <div class="item-list">
+        ${todos.length === 0
+          ? '<div class="empty">TODOはありません</div>'
+          : items}
+      </div>`;
+  }
+
+  function renderShopTab() {
+    const catOpts = CATEGORIES.map(c =>
+      `<option value="${c.label}">${c.icon} ${c.label}</option>`
+    ).join('');
+    const bought = shops.filter(s => s.bought).length;
+
+    const items = shops.map((s, i) => `
+      <div class="item${s.bought ? ' done-item' : ''}">
+        <button class="check-btn${s.bought ? ' checked-shop' : ''}" onclick="toggleShop(${i})">
+          ${s.bought ? '✓' : ''}
+        </button>
+        <div class="item-body">
+          <div class="item-title">${esc(s.item)}</div>
+        </div>
+        <div class="item-right">
+          <span class="cat-badge">${getCatIcon(s.cat)} ${esc(s.cat)}</span>
+          <button class="del-btn" onclick="delShop(${i})">✕</button>
+        </div>
+      </div>`).join('');
+
+    return `
+      <div class="input-card shop-mode">
+        <div class="field">
+          <label>買う物</label>
+          <input type="text" id="shopItem" placeholder="例：牛乳" onkeydown="if(event.key==='Enter')addShop()">
+        </div>
+        <div class="field">
+          <label>支出項目</label>
+          <select id="shopCat">${catOpts}</select>
+        </div>
+        <button class="add-btn shop-btn" onclick="addShop()">＋ 追加</button>
+      </div>
+      <div class="summary">
+        <span class="summary-label">買い物 ${shops.length}件 / 購入済み ${bought}件</span>
+        <button class="clear-btn" onclick="clearBoughtShop()">購入済みを削除</button>
+      </div>
+      <div class="item-list">
+        ${shops.length === 0
+          ? '<div class="empty">買い物リストはありません</div>'
+          : items}
+      </div>`;
+  }
+
+  function getCatIcon(label) {
+    const c = CATEGORIES.find(c => c.label === label);
+    return c ? c.icon : '📦';
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── TODO actions ──
+  function addTodo() {
+    const taskEl = document.getElementById('todoTask');
+    const task = taskEl.value.trim();
+    if (!task) { taskEl.classList.add('error'); setTimeout(() => taskEl.classList.remove('error'), 800); taskEl.focus(); return; }
+    const time = document.getElementById('todoTime').value;
+    todos.unshift({ id: uid(), task, time, done: false });
+    save(); render(); vibrate();
+    showToast('追加しました');
+  }
+
+  function toggleTodo(i) {
+    todos[i].done = !todos[i].done;
+    save(); render(); vibrate();
+  }
+
+  function delTodo(i) {
+    todos.splice(i, 1);
+    save(); render();
+  }
+
+  function clearDoneTodo() {
+    const n = todos.filter(t => t.done).length;
+    if (!n) return;
+    todos = todos.filter(t => !t.done);
+    save(); render();
+    showToast(`完了済み ${n}件を削除しました`);
+  }
+
+  // ── Shop actions ──
+  function addShop() {
+    const itemEl = document.getElementById('shopItem');
+    const item = itemEl.value.trim();
+    if (!item) { itemEl.classList.add('error'); setTimeout(() => itemEl.classList.remove('error'), 800); itemEl.focus(); return; }
+    const cat = document.getElementById('shopCat').value;
+    shops.unshift({ id: uid(), item, cat, bought: false });
+    save(); render(); vibrate();
+    showToast('追加しました');
+  }
+
+  function toggleShop(i) {
+    shops[i].bought = !shops[i].bought;
+    save(); render(); vibrate();
+  }
+
+  function delShop(i) {
+    shops.splice(i, 1);
+    save(); render();
+  }
+
+  function clearBoughtShop() {
+    const n = shops.filter(s => s.bought).length;
+    if (!n) return;
+    shops = shops.filter(s => !s.bought);
+    save(); render();
+    showToast(`購入済み ${n}件を削除しました`);
+  }
+
+  render();
+</script>
+</body>
+</html>
