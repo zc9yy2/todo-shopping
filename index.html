@@ -98,7 +98,7 @@
       margin-bottom: 5px;
     }
 
-    input[type="text"], select {
+    input[type="text"], input[type="date"], select {
       width: 100%;
       border: 1.5px solid var(--border);
       border-radius: 10px;
@@ -111,8 +111,8 @@
       -webkit-appearance: none;
     }
 
-    input[type="text"]:focus, select:focus { border-color: var(--todo); }
-    .shop-mode input[type="text"]:focus, .shop-mode select:focus { border-color: var(--shop); }
+    input[type="text"]:focus, input[type="date"]:focus, select:focus { border-color: var(--todo); }
+    .shop-mode input[type="text"]:focus, .shop-mode input[type="date"]:focus, .shop-mode select:focus { border-color: var(--shop); }
     input.error { border-color: #fc8181; }
 
     .row { display: flex; gap: 9px; }
@@ -206,7 +206,7 @@
 
     .item-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-    .time-badge, .cat-badge {
+    .time-badge, .cat-badge, .date-badge {
       font-size: 0.72rem;
       font-weight: 600;
       padding: 3px 9px;
@@ -214,6 +214,7 @@
     }
     .time-badge { background: var(--todo-light); color: var(--todo); }
     .cat-badge  { background: var(--shop-light); color: #065f46; }
+    .date-badge { background: #f1f5f9; color: var(--muted); }
 
     .del-btn {
       background: none; border: none;
@@ -369,6 +370,7 @@
   function renderTodoTab() {
     const timeOpts = TIME_OPTIONS.map(t => `<option value="${t}">${t}</option>`).join('');
     const done = todos.filter(t => t.done).length;
+    const today = new Date().toISOString().slice(0, 10);
 
     const items = todos.map((t, i) => `
       <div class="item${t.done ? ' done-item' : ''}">
@@ -379,6 +381,7 @@
           <div class="item-title">${esc(t.task)}</div>
         </div>
         <div class="item-right">
+          ${t.date ? `<span class="date-badge">📅 ${fmtDate(t.date)}</span>` : ''}
           <span class="time-badge">⏱ ${esc(t.time)}</span>
           <button class="del-btn" onclick="delTodo(${i})">✕</button>
         </div>
@@ -390,9 +393,15 @@
           <label>やること</label>
           <input type="text" id="todoTask" placeholder="例：資料作成" onkeydown="if(event.key==='Enter')addTodo()">
         </div>
-        <div class="field">
-          <label>必要時間</label>
-          <select id="todoTime">${timeOpts}</select>
+        <div class="row">
+          <div class="field">
+            <label>必要時間</label>
+            <select id="todoTime">${timeOpts}</select>
+          </div>
+          <div class="field">
+            <label>期限日</label>
+            <input type="date" id="todoDate" value="${today}">
+          </div>
         </div>
         <button class="add-btn todo-btn" onclick="addTodo()">＋ 追加</button>
       </div>
@@ -412,6 +421,7 @@
       `<option value="${c.label}">${c.icon} ${c.label}</option>`
     ).join('');
     const bought = shops.filter(s => s.bought).length;
+    const today = new Date().toISOString().slice(0, 10);
 
     const items = shops.map((s, i) => `
       <div class="item${s.bought ? ' done-item' : ''}">
@@ -422,6 +432,7 @@
           <div class="item-title">${esc(s.item)}</div>
         </div>
         <div class="item-right">
+          ${s.date ? `<span class="date-badge">📅 ${fmtDate(s.date)}</span>` : ''}
           <span class="cat-badge">${getCatIcon(s.cat)} ${esc(s.cat)}</span>
           <button class="del-btn" onclick="delShop(${i})">✕</button>
         </div>
@@ -433,9 +444,15 @@
           <label>買う物</label>
           <input type="text" id="shopItem" placeholder="例：牛乳" onkeydown="if(event.key==='Enter')addShop()">
         </div>
-        <div class="field">
-          <label>支出項目</label>
-          <select id="shopCat">${catOpts}</select>
+        <div class="row">
+          <div class="field">
+            <label>支出項目</label>
+            <select id="shopCat">${catOpts}</select>
+          </div>
+          <div class="field">
+            <label>購入予定日</label>
+            <input type="date" id="shopDate" value="${today}">
+          </div>
         </div>
         <button class="add-btn shop-btn" onclick="addShop()">＋ 追加</button>
       </div>
@@ -448,6 +465,12 @@
           ? '<div class="empty">買い物リストはありません</div>'
           : items}
       </div>`;
+  }
+
+  function fmtDate(d) {
+    if (!d) return '';
+    const [, m, day] = d.split('-');
+    return `${parseInt(m)}/${parseInt(day)}`;
   }
 
   function getCatIcon(label) {
@@ -467,7 +490,8 @@
     const task = taskEl.value.trim();
     if (!task) { taskEl.classList.add('error'); setTimeout(() => taskEl.classList.remove('error'), 800); taskEl.focus(); return; }
     const time = document.getElementById('todoTime').value;
-    todos.unshift({ id: uid(), task, time, done: false });
+    const date = document.getElementById('todoDate').value;
+    todos.unshift({ id: uid(), task, time, date, done: false });
     save(); render(); vibrate();
     showToast('追加しました');
   }
@@ -496,7 +520,8 @@
     const item = itemEl.value.trim();
     if (!item) { itemEl.classList.add('error'); setTimeout(() => itemEl.classList.remove('error'), 800); itemEl.focus(); return; }
     const cat = document.getElementById('shopCat').value;
-    shops.unshift({ id: uid(), item, cat, bought: false });
+    const date = document.getElementById('shopDate').value;
+    shops.unshift({ id: uid(), item, cat, date, bought: false });
     save(); render(); vibrate();
     showToast('追加しました');
   }
